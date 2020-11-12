@@ -1,14 +1,15 @@
 import { useRef, useState } from 'preact/hooks';
 
 export const useMyForm = () => {
-  const inputRef = useRef([]);
+  const inputRef = useRef({});
   const argRef = useRef([]);
   const [errors, setErrors] = useState({});
 
-
   const clerMyRefValues = () => {
-    inputRef.current.forEach((item) => {
-      item.value = '';
+    const inputKeys = Object.keys(inputRef.current);
+    console.log(inputKeys);
+    inputKeys.forEach((input) => {
+      inputRef.current[input].value = '';
     });
   };
 
@@ -16,54 +17,60 @@ export const useMyForm = () => {
   const handlerSubmit = (func) => {
     return (e) => {
       e.preventDefault();
-      //get values
-      const values = inputRef.current.reduce((acc, item) => {
-        return {
-          ...acc,
-          [item.name]: item.value
-        }
-      }, {});
+      //values for func callback
+      const values = {};
+      for (let key in inputRef.current) {
+        values[key] = inputRef.current[key].value;
+      }
+      const errorTemp = {};
 
-      const argWithVal = inputRef.current.map((item, i) => {
-        return {
-          name: item.name,
-          value: item.value,
-          ...argRef.current[i][0]
+      argRef.current.forEach((input) => {
+        if (input.required) {
+          errorTemp[input.name] = inputRef.current[input.name].value === '';
+        }
+        if (input.maxLength) {
+          errorTemp[input.name] = inputRef.current[input.name].value.length > input.maxLength;
         }
       });
 
-      const curErrors = argWithVal.reduce((acc, item) => {
-        if (item.required) {
-          return {
-            ...acc,
-            [item.name]: item.value === ''
-          }
-        }
-        return acc
-      }, {});
+      setErrors(prev => ({
+        ...prev,
+        ...errorTemp
+      }));
 
+      console.log(argRef.current);
+      console.log(inputRef.current);
 
-      // setErrors(curErrors);
-      console.log(argRef);
-      // console.log(argWithVal);
       func(values);
-      clerMyRefValues();
+      const isErrors = Object.values(errorTemp);
+      if (!isErrors.includes(true)) {
+        clerMyRefValues();
+      }
+
     };
   };
 
   //register
   function register(arg) {
-
     if (arg instanceof HTMLElement) {
       const { name, value } = arg;
-      argRef.current.push({ name, value });
-      inputRef.current.push(arg);
+      if (argRef.current.findIndex(item => item.name === name) === -1) {
+        argRef.current.push({ name, value });
+      }
+
+      inputRef.current[arg.name] = arg;
     } else {
 
       return (e) => {
-        const { name, value } = e;
-        argRef.current.push({ name, value, ...arg });
-        return inputRef.current.push(e);
+        if (e) {
+          const { name, value } = e;
+          if (argRef.current.findIndex(item => item.name === name) === -1) {
+            argRef.current.push({ name, value, ...arg });
+          }
+          return inputRef.current[e.name] = e;
+        }
+        if (!e) {
+        }
       }
     }
   }
